@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/chat_screen.dart';
+import 'screens/login_screen.dart';
 
 void main() {
   runApp(const MedApp());
@@ -16,7 +16,7 @@ class MedApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         useMaterial3: true,
       ),
-      home: ChatScreen(),
+      home: const LoginScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
