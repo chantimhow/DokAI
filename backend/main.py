@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import os
+import requests
 from dotenv import load_dotenv
 
 import ai_service
@@ -63,6 +64,28 @@ async def scan_endpoint(
         traceback.print_exc()
         print(f"Error in /api/scan: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.get("/api/clinics")
+def get_clinics(lat: float, lon: float):
+    """
+    Proxies the clinic search query to Overpass API to avoid frontend CORS issues.
+    """
+    overpass_url = "https://overpass-api.de/api/interpreter"
+    query = f"""
+        [out:json];
+        (
+          node["amenity"="clinic"](around:5000,{lat},{lon});
+          node["amenity"="hospital"](around:5000,{lat},{lon});
+        );
+        out 3;
+    """
+    try:
+        response = requests.post(overpass_url, data={"data": query})
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"Error querying Overpass API: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch clinics")
 
 @app.get("/health")
 def health_check():
