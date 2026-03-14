@@ -14,7 +14,7 @@ class _KampungHealthHomeState extends State<KampungHealthHome> {
   late final List<Widget> _pages = [
     _buildMediScanContent(), // Your new modern homepage
     const Center(child: Text('Emergency Services')),
-    const Center(child: Text('Clinic Info')),
+    const Center(child: Text('Personal Profile')),
   ];
 
   void _onItemTapped(int index) {
@@ -44,11 +44,10 @@ class _KampungHealthHomeState extends State<KampungHealthHome> {
       elevation: 0,
       title: Row(
         children: const [
-          Icon(Icons.add_a_photo, color: Color(0xFF009688), size: 28),
-          SizedBox(width: 8),
+          // The camera icon and spacing have been removed from here
           Text(
-            'MediScan ',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+            'KampungScan ',
+            style: TextStyle(color: Color.fromARGB(255, 0, 0, 0), fontWeight: FontWeight.bold),
           ),
           Text(
             'AI',
@@ -59,13 +58,8 @@ class _KampungHealthHomeState extends State<KampungHealthHome> {
           ),
         ],
       ),
-      actions: [
-        const CircleAvatar(
-          radius: 15,
-          backgroundColor: Color(0xFF009688),
-          child: Icon(Icons.person, size: 20, color: Colors.white),
-        ),
-      ],
+     
+  
     );
   }
 
@@ -170,7 +164,7 @@ class _KampungHealthHomeState extends State<KampungHealthHome> {
             children: const [
               Icon(Icons.face_unlock_outlined, size: 20),
               SizedBox(width: 10),
-              Expanded(child: Text("OR DESCRIBE SYMPTOMS (TEXT/VOICE)")),
+              Expanded(child: Text("DESCRIBE SYMPTOMS")),
               Icon(Icons.mic, color: Color(0xFF009688)),
               SizedBox(width: 10),
               Icon(Icons.edit, color: Colors.grey),
@@ -183,20 +177,16 @@ class _KampungHealthHomeState extends State<KampungHealthHome> {
 
   Widget _buildAssistantGrid() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      mainAxisAlignment: MainAxisAlignment.center, // Centers the remaining buttons
       children: [
         _buildAssistantCard(
-          "AI Symptom\nChecker",
-          Icons.psychology_outlined,
-          true,
-        ),
-        _buildAssistantCard(
-          "Book GP\nAppointment",
+          "Book \nAppointment",
           Icons.calendar_today,
           false,
         ),
+        const SizedBox(width: 20), // Adds a nice gap between the two buttons
         _buildAssistantCard(
-          "Medication\nTracker",
+          "Medication\nCentre",
           Icons.medication_outlined,
           false,
         ),
@@ -266,12 +256,12 @@ class _KampungHealthHomeState extends State<KampungHealthHome> {
       items: const [
         BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
         BottomNavigationBarItem(
-          icon: Icon(Icons.chat_bubble_outline),
-          label: 'Chat',
+          icon: Icon(Icons.emergency),
+          label: 'Emergency',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.favorite_border),
-          label: 'Health',
+          label: 'Profile',
         ),
       ],
     );
