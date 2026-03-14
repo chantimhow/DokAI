@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'chat_screen.dart';
+import 'emergency_screen.dart'; // Imported your new emergency screen
+import 'profile_screen.dart'; 
 
 class KampungHealthHome extends StatefulWidget {
   const KampungHealthHome({super.key});
@@ -11,17 +13,25 @@ class KampungHealthHome extends StatefulWidget {
 class _KampungHealthHomeState extends State<KampungHealthHome> {
   int _selectedIndex = 0;
 
+  final List<Map<String, String>> _careHistory = [
+    {"date": "Jan 15", "issue": "Wrist Rash", "status": "Analyzed - View Report"},
+    {"date": "Jan 12", "issue": "Leg Bruise", "status": "Analyzed - View Report"},
+    {"date": "Jan 08", "issue": "Mild Fever", "status": "Prescription Ready"},
+    {"date": "Jan 02", "issue": "Persistent Headache", "status": "Doctor Consulted"},
+    {"date": "Dec 28", "issue": "Cough & Cold", "status": "Recovered"},
+    {"date": "Dec 14", "issue": "Ankle Sprain", "status": "Analyzed - View Report"},
+  ];
+
   late final List<Widget> _pages = [
-    _buildMediScanContent(), // Your new modern homepage
-    const Center(child: Text('Emergency Services')),
-    const Center(child: Text('Personal Profile')),
+    _buildMediScanContent(), 
+    const EmergencyFlow(), // --- UPDATED: Using the wrapper instead of the screen directly!
+    const ProfileScreen(), 
   ];
 
   void _onItemTapped(int index) {
     setState(() => _selectedIndex = index);
   }
 
-  // Common navigation function to keep your existing functionality
   void _navigateToChat() {
     Navigator.of(
       context,
@@ -32,7 +42,7 @@ class _KampungHealthHomeState extends State<KampungHealthHome> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: _buildAppBar(),
+      appBar: _selectedIndex == 0 ? _buildAppBar() : null, 
       body: _pages[_selectedIndex],
       bottomNavigationBar: _buildBottomNavBar(),
     );
@@ -44,9 +54,8 @@ class _KampungHealthHomeState extends State<KampungHealthHome> {
       elevation: 0,
       title: Row(
         children: const [
-          // The camera icon and spacing have been removed from here
           Text(
-            'KampungScan ',
+            'KampungCare ',
             style: TextStyle(color: Color.fromARGB(255, 0, 0, 0), fontWeight: FontWeight.bold),
           ),
           Text(
@@ -58,32 +67,21 @@ class _KampungHealthHomeState extends State<KampungHealthHome> {
           ),
         ],
       ),
-     
-  
     );
   }
 
   Widget _buildMediScanContent() {
     return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- Main Scanner Section (Replaces your "Take Picture" button) ---
+          const SizedBox(height: 30),
           _buildScannerHero(),
-
-          // --- Description Bar (Replaces your "Voice Input" button) ---
+          const SizedBox(height: 30),
           _buildDescriptionBar(),
-
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 24, 16, 16),
-            child: Text(
-              "Your Health Assistant",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-
-          _buildAssistantGrid(),
-
+          const SizedBox(height: 20),
+          
           const Padding(
             padding: EdgeInsets.all(16),
             child: Text(
@@ -91,8 +89,9 @@ class _KampungHealthHomeState extends State<KampungHealthHome> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-
+          
           _buildCareHistoryList(),
+          const SizedBox(height: 40), 
         ],
       ),
     );
@@ -103,14 +102,13 @@ class _KampungHealthHomeState extends State<KampungHealthHome> {
       width: double.infinity,
       height: 300,
       decoration: const BoxDecoration(
-        color: Color(0xFFF0F9F8), // Soft background tint
+        color: Colors.transparent, 
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // The Glowing Camera Button (Functional)
           GestureDetector(
-            onTap: _navigateToChat, // Triggers your existing camera/chat logic
+            onTap: _navigateToChat,
             child: Container(
               padding: const EdgeInsets.all(25),
               decoration: BoxDecoration(
@@ -152,7 +150,7 @@ class _KampungHealthHomeState extends State<KampungHealthHome> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: InkWell(
-        onTap: _navigateToChat, // Triggers your existing voice/text chat logic
+        onTap: _navigateToChat,
         borderRadius: BorderRadius.circular(30),
         child: Container(
           padding: const EdgeInsets.all(15),
@@ -164,7 +162,9 @@ class _KampungHealthHomeState extends State<KampungHealthHome> {
             children: const [
               Icon(Icons.face_unlock_outlined, size: 20),
               SizedBox(width: 10),
-              Expanded(child: Text("DESCRIBE SYMPTOMS")),
+              Expanded(
+                child: Text("DESCRIBE SYMPTOMS")
+              ),
               Icon(Icons.mic, color: Color(0xFF009688)),
               SizedBox(width: 10),
               Icon(Icons.edit, color: Colors.grey),
@@ -175,55 +175,14 @@ class _KampungHealthHomeState extends State<KampungHealthHome> {
     );
   }
 
-  Widget _buildAssistantGrid() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center, // Centers the remaining buttons
-      children: [
-        _buildAssistantCard(
-          "Book \nAppointment",
-          Icons.calendar_today,
-          false,
-        ),
-        const SizedBox(width: 20), // Adds a nice gap between the two buttons
-        _buildAssistantCard(
-          "Medication\nCentre",
-          Icons.medication_outlined,
-          false,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAssistantCard(String title, IconData icon, bool highlighted) {
-    return Container(
-      width: 100,
-      height: 110,
-      decoration: BoxDecoration(
-        color: highlighted ? const Color(0xFFE0F2F1) : Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: const Color(0xFF009688)),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildCareHistoryList() {
     return ListView.builder(
       shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: 2,
+      physics: const NeverScrollableScrollPhysics(), 
+      itemCount: _careHistory.length, 
       itemBuilder: (context, index) {
+        final item = _careHistory[index]; 
+        
         return ListTile(
           leading: Container(
             width: 50,
@@ -232,16 +191,21 @@ class _KampungHealthHomeState extends State<KampungHealthHome> {
               color: Colors.grey[200],
               borderRadius: BorderRadius.circular(8),
             ),
+            child: const Icon(
+              Icons.history, 
+              color: Colors.black38,
+            ),
           ),
           title: Text(
-            index == 0 ? "Jan 15: Wrist Rash" : "Jan 12: Leg Bruise",
+            "${item['date']}: ${item['issue']}", 
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          subtitle: const Text(
-            "Analyzed - View Report",
-            style: TextStyle(color: Color(0xFF009688)),
+          subtitle: Text(
+            item['status']!, 
+            style: const TextStyle(color: Color(0xFF009688)),
           ),
           trailing: const Icon(Icons.chevron_right),
+          onTap: () {},
         );
       },
     );

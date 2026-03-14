@@ -7,8 +7,8 @@ class ApiService {
   // Use 10.0.2.2 for Android emulator to access localhost
   // OR use your actual local IP address (e.g., 192.168.x.x) if testing on a physical device.
   // For simplicity, we assume we are running the backend on the same machine on port 8000
-  static const String baseUrl = 'http://127.0.0.1:8000/api'; 
-
+  static const String baseUrl = "http://10.0.2.2:8000";
+  
   static Future<ChatResponse> sendMessage(String text) async {
     final response = await http.post(
       Uri.parse('$baseUrl/chat'),

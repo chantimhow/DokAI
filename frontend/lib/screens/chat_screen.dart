@@ -18,7 +18,9 @@ class ChatScreen extends StatefulWidget {
 }
 
 class ChatScreenState extends State<ChatScreen> {
+  // This is the variable that was showing as undefined!
   final List<ChatMessage> _messages = [];
+  
   final TextEditingController _textController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
@@ -84,7 +86,7 @@ class ChatScreenState extends State<ChatScreen> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Speech recognition is not available or disabled in this browser.')),
+          const SnackBar(content: Text('Speech recognition is not available or disabled in this browser.')),
         );
       }
     }
@@ -123,7 +125,6 @@ class ChatScreenState extends State<ChatScreen> {
     }
     
     await _flutterTts.setVolume(1.0);
-    // 1.0 is default.
     await _flutterTts.setSpeechRate(1.0);
     await _flutterTts.setPitch(1.0);
 
@@ -193,8 +194,6 @@ class ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _getImage() async {
-    // Note: ImageSource.camera is not supported on Linux/Windows desktops.
-    // We use gallery so the user can select an image file from their computer instead.
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
 
     if (image != null) {
@@ -281,7 +280,7 @@ class ChatScreenState extends State<ChatScreen> {
         position = await Geolocator.getCurrentPosition(
           timeLimit: const Duration(seconds: 5),
         );
-        print("UI: Location obtained: \${position.latitude}, \${position.longitude}");
+        print("UI: Location obtained: ${position.latitude}, ${position.longitude}");
       } catch (e) {
         print("UI: Geolocator failed: $e. Falling back to IP location...");
         final ipLoc = await ApiService.getIpLocation();
@@ -359,7 +358,7 @@ class ChatScreenState extends State<ChatScreen> {
           if (!message.isUser)
             CircleAvatar(
               backgroundColor: Colors.blue.shade100,
-              child: Icon(Icons.medical_services),
+              child: const Icon(Icons.medical_services),
             ),
           Expanded(
             child: Column(
@@ -368,10 +367,10 @@ class ChatScreenState extends State<ChatScreen> {
                   : CrossAxisAlignment.start,
               children: <Widget>[
                 Container(
-                  padding: EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(12),
                   margin: message.isUser
-                      ? EdgeInsets.only(left: 40)
-                      : EdgeInsets.only(right: 40, left: 10),
+                      ? const EdgeInsets.only(left: 40)
+                      : const EdgeInsets.only(right: 40, left: 10),
                   decoration: BoxDecoration(
                     color: message.isUser ? Colors.blue : Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(15),
@@ -392,7 +391,7 @@ class ChatScreenState extends State<ChatScreen> {
                       if (message.isUser)
                         Text(
                           message.text,
-                          style: TextStyle(color: Colors.white),
+                          style: const TextStyle(color: Colors.white),
                         )
                       else
                         Column(
@@ -451,8 +450,8 @@ class ChatScreenState extends State<ChatScreen> {
                                   children: [
                                     Row(
                                       children: [
-                                        Icon(Icons.local_hospital, color: Colors.red, size: 20),
-                                        SizedBox(width: 8),
+                                        const Icon(Icons.local_hospital, color: Colors.red, size: 20),
+                                        const SizedBox(width: 8),
                                         Text(
                                           "Nearby Urgent Care:",
                                           style: TextStyle(
@@ -474,7 +473,7 @@ class ChatScreenState extends State<ChatScreen> {
                                               Expanded(
                                                 child: Text(
                                                   clinic['name'] ?? 'Unknown Clinic',
-                                                  style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+                                                  style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
                                                   overflow: TextOverflow.ellipsis,
                                                 ),
                                               ),
@@ -493,16 +492,16 @@ class ChatScreenState extends State<ChatScreen> {
                                               children: [
                                                 TextButton.icon(
                                                   onPressed: () async {
-                                                    final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=${clinic['lat']},${clinic['lon']}');
+                                                    final url = Uri.parse('http://maps.google.com/?q=${clinic['lat']},${clinic['lon']}');
                                                     if (await canLaunchUrl(url)) {
                                                       await launchUrl(url);
                                                     }
                                                   },
-                                                  icon: Icon(Icons.directions, size: 16),
-                                                  label: Text('Directions'),
+                                                  icon: const Icon(Icons.directions, size: 16),
+                                                  label: const Text('Directions'),
                                                   style: TextButton.styleFrom(
                                                     padding: EdgeInsets.zero,
-                                                    minimumSize: Size(50, 30),
+                                                    minimumSize: const Size(50, 30),
                                                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                                     alignment: Alignment.centerLeft,
                                                   ),
@@ -516,11 +515,11 @@ class ChatScreenState extends State<ChatScreen> {
                                                         await launchUrl(url);
                                                       }
                                                     },
-                                                    icon: Icon(Icons.phone, size: 16),
-                                                    label: Text('Call'),
+                                                    icon: const Icon(Icons.phone, size: 16),
+                                                    label: const Text('Call'),
                                                     style: TextButton.styleFrom(
                                                       padding: EdgeInsets.zero,
-                                                      minimumSize: Size(50, 30),
+                                                      minimumSize: const Size(50, 30),
                                                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                                     ),
                                                   ),
@@ -544,10 +543,10 @@ class ChatScreenState extends State<ChatScreen> {
           ),
           if (message.isUser)
             Container(
-              margin: EdgeInsets.only(left: 10),
+              margin: const EdgeInsets.only(left: 10),
               child: CircleAvatar(
                 backgroundColor: Colors.grey.shade300,
-                child: Icon(Icons.person),
+                child: const Icon(Icons.person),
               ),
             ),
         ],
@@ -563,7 +562,7 @@ class ChatScreenState extends State<ChatScreen> {
         child: Row(
           children: <Widget>[
             IconButton(
-              icon: Icon(Icons.camera_alt),
+              icon: const Icon(Icons.camera_alt),
               onPressed: _getImage,
             ),
             IconButton(
@@ -576,7 +575,7 @@ class ChatScreenState extends State<ChatScreen> {
               child: TextField(
                 controller: _textController,
                 onSubmitted: _handleSubmitted,
-                decoration: InputDecoration.collapsed(
+                decoration: const InputDecoration.collapsed(
                   hintText: "Describe a symptom...",
                 ),
               ),
@@ -584,7 +583,7 @@ class ChatScreenState extends State<ChatScreen> {
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 4.0),
               child: IconButton(
-                icon: Icon(Icons.send),
+                icon: const Icon(Icons.send),
                 onPressed: () => _handleSubmitted(_textController.text),
               ),
             ),
@@ -597,26 +596,31 @@ class ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('MedApp Assistant'), elevation: 1),
+      appBar: AppBar(title: const Text('MedApp Assistant'), elevation: 1),
       body: Column(
         children: <Widget>[
           Flexible(
             child: ListView.builder(
-              padding: EdgeInsets.all(8.0),
+              padding: const EdgeInsets.all(8.0),
               reverse: false,
               itemBuilder: (_, int index) => _buildMessage(_messages[index]),
               itemCount: _messages.length,
             ),
           ),
           if (_isLoading)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
+            const Padding(
+              padding: EdgeInsets.all(8.0),
               child: CircularProgressIndicator(),
             ),
-          Divider(height: 1.0),
-          Container(
-            decoration: BoxDecoration(color: Theme.of(context).cardColor),
-            child: _buildTextComposer(),
+          const Divider(height: 1.0),
+          
+          // --- UPDATED: Added SafeArea and bottom padding ---
+          SafeArea(
+            child: Container(
+              padding: const EdgeInsets.only(bottom: 12.0, top: 8.0), // Adds breathing room
+              decoration: BoxDecoration(color: Theme.of(context).cardColor),
+              child: _buildTextComposer(),
+            ),
           ),
         ],
       ),
