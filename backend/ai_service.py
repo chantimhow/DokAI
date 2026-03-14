@@ -12,11 +12,27 @@ API_URL = "https://aiworkshopapi.flexinfra.com.my/v1/chat/completions"
 API_KEY = os.getenv("FLEXTOKEN_API_KEY", "sk-lByvUFGh9OH13RasoMXXfA")
 MODEL_NAME = "qwen2.5"
 
-SYSTEM_PROMPT = """You are a helpful and knowledgeable AI assistant for a medical application. 
-You are designed to help users understand their symptoms or skin conditions.
-However, you MUST always include a disclaimer that you are not a doctor.
-Provide clear, concise information and suggest basic next steps (like whether they should see a doctor urgently or if home care might be sufficient), but never provide a definitive diagnosis.
-Respond empathically and professionally."""
+SYSTEM_PROMPT = """You are 'DokAI', a compassionate and professional medical assistant specifically designed to help rural 'kampung' communities. Your goal is to provide early health guidance and bridge the gap between home care and professional medical services.
+
+### OPERATIONAL RULES:
+1. MEDICAL DISCLAIMER: You MUST start every response with:  I am an AI assistant, not a doctor. This info is not an official diagnosis
+2. TONE: Respond with high empathy, patience, and professional warmth. Use simple, non-technical language that is easy for a non-expert to understand.
+3. LANGUAGE: You are bilingual. Respond in the same language the user uses , English or Malay
+4. NO DEFINITIVE DIAGNOSIS: Never say "You have [Disease]." Instead, use These symptoms might be related to
+5. IMAGE HANDLING: Since you are a text model, if the user mentions an image or if you receive an 'auto-caption', acknowledge it  and ask clarifying questions about texture, itchiness, or duration.
+
+### RESPONSE STRUCTURE:
+1. Acknowledge the user's concern empathically.
+2. Provide 2-3 common possibilities for the symptoms described.
+3. Suggest (Next Steps):
+   - Urgent: If symptoms sound like an emergency (e.g., chest pain, severe bleeding), tell them to go to the nearest clinic immediately.
+   - Non-Urgent: Suggest home monitoring or basic first aid.
+4. Ask 1-2 follow-up questions to help the user reflect on their condition.
+
+Always encourage preventative care and visiting a local professional when in doubt.
+
+### CRITICAL INSTRUCTION FOR EMERGENCIES:
+If you determine the user's symptoms sound like a medical emergency (Urgent), you MUST append the exact text `[URGENT_CLINIC_SEARCH]` at the very end of your response. This hidden tag will trigger the app's GPS locator to find nearby hospitals automatically."""
 
 async def generate_chat_response(prompt: str) -> str:
     """
@@ -33,7 +49,7 @@ async def generate_chat_response(prompt: str) -> str:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt}
         ],
-        "max_tokens": 4096,
+        "max_completion_tokens": 4096,
         "temperature": 0.1,
         "top_p": 0.9
     }
@@ -54,64 +70,45 @@ async def generate_chat_response(prompt: str) -> str:
         return f"I'm sorry, I encountered an error while communicating with the AI service: {e}"
 
 
+from google.cloud import aiplatform
+
+# Replace these with your actual values
+PROJECT_ID = "project-2dfacedf-5d4a-4fdf-9aa"
+LOCATION = "us-central1"  
+ENDPOINT_ID = "mg-endpoint-7079bfbb-2633-44ac-b047-beb2c365e1e8"
+
+# Initialize Vertex AI
+aiplatform.init(project=PROJECT_ID, location=LOCATION)
+
 async def analyze_image(image_bytes: bytes, mime_type: str, user_description: str = "") -> str:
     """
-    Generates a response based on an image and optional text description.
-    Note: qwen2.5 is primarily a text model, but we will send it in standard OpenAI vision format
-    in case the endpoint routing handles it or a vision model is swapped in later.
+    Sends medical image and text to the MedGemma endpoint on Vertex AI.
     """
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {API_KEY}"
-    }
+    # 1. Initialize the Endpoint
+    endpoint = aiplatform.Endpoint(ENDPOINT_ID)
     
-    base64_image = base64.b64encode(image_bytes).decode('utf-8')
-    image_url = f"data:{mime_type};base64,{base64_image}"
+    # 2. Prepare the Image (Base64 encoded for JSON payload)
+    base64_image = base64.b64encode(image_bytes).decode("utf-8")
     
-    prompt_text = "The user has uploaded an image"
-    if user_description:
-        prompt_text += f" and provided this description: '{user_description}'."
-    prompt_text += "\nPlease analyze the image and provide possible insights or general advice. Remember the disclaimer."
-
-    data = {
-        "model": MODEL_NAME,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt_text},
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": image_url
-                        }
-                    }
-                ]
-            }
-        ],
-        "max_tokens": 4096,
-        "temperature": 0.1,
-        "top_p": 0.9
-    }
-
+    prompt_text = f"Analyze this medical image: {user_description}"
+    prompt_text += " If you determine the symptoms sound like a medical emergency, you MUST append the exact text `[URGENT_CLINIC_SEARCH]` at the very end of your response."
+    
+    # 3. Construct the Instance (MedGemma 1.5 format)
+    # Instances are sent as a list of dicts
+    instances = [{
+        "prompt": prompt_text,
+        "image": {"bytesBase64": base64_image}
+    }]
+    
     try:
-        response = requests.post(API_URL, headers=headers, json=data)
+        # 4. Request Prediction
+        response = endpoint.predict(instances=instances)
         
-        # If the model doesn't support vision, it usually throws a 400. Let's catch it gracefully.
-        if response.status_code == 400:
-             print(f"Vision API Error: {response.text}")
-             return "I'm sorry, the current AI model (qwen2.5) does not support image analysis. Please describe your symptoms in text."
-             
-        response.raise_for_status()
+        # MedGemma typically returns a list of predictions
+        if response.predictions:
+            return response.predictions[0]
+        return "No prediction returned from MedGemma."
         
-        response_json = response.json()
-        if "choices" in response_json and len(response_json["choices"]) > 0:
-             return response_json["choices"][0]["message"]["content"]
-        else:
-             print(f"Unexpected API response format: {response_json}")
-             return "I'm sorry, I received an unexpected response from the AI service."
-             
     except Exception as e:
-        print(f"Error analyzing image: {e}")
-        return f"I'm sorry, I encountered an error while analyzing the image: {e}"
+        print(f"Vertex AI Prediction Error: {e}")
+        return f"Error connecting to Vertex AI: {str(e)}"
