@@ -12,7 +12,7 @@ load_dotenv()
 
 app = FastAPI(title="MedApp Backend")
 
-# Allow requests from the Flutter app
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allows all origins

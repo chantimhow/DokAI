@@ -12,9 +12,9 @@ class MedApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
       title: 'MedApp Assistant',
       theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
+      debugShowCheckedModeBanner: false,
       home: const KampungHealthHome(),
       routes: {
         '/homepage': (context) => const KampungHealthHome(),

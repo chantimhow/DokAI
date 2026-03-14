@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/chat_message.dart';
 import '../services/api_service.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -127,12 +128,22 @@ class ChatScreenState extends State<ChatScreen> {
                             ),
                           ),
                         ),
-                      Text(
-                        message.text,
-                        style: TextStyle(
-                          color: message.isUser ? Colors.white : Colors.black87,
+                      if (message.isUser)
+                        Text(
+                          message.text,
+                          style: TextStyle(
+                            color: Colors.white,
+                          ),
+                        )
+                      else
+                        MarkdownBody(
+                          data: message.text,
+                          styleSheet: MarkdownStyleSheet(
+                            p: const TextStyle(color: Colors.black87),
+                            listBullet: const TextStyle(color: Colors.black87),
+                            strong: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
