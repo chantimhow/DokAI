@@ -11,11 +11,13 @@ import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ChatScreen extends StatefulWidget {
+  const ChatScreen({super.key});
+
   @override
-  _ChatScreenState createState() => _ChatScreenState();
+  ChatScreenState createState() => ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class ChatScreenState extends State<ChatScreen> {
   final List<ChatMessage> _messages = [];
   final TextEditingController _textController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
@@ -154,7 +156,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _handleSubmitted(String text) async {
     _textController.clear();
-    
+
     if (text.trim().isEmpty) return;
 
     setState(() {
@@ -179,7 +181,12 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     } catch (e) {
       setState(() {
-        _messages.add(ChatMessage(text: 'Error communicating with server: $e', isUser: false));
+        _messages.add(
+          ChatMessage(
+            text: 'Error communicating with server: $e',
+            isUser: false,
+          ),
+        );
         _isLoading = false;
       });
     }
@@ -189,10 +196,16 @@ class _ChatScreenState extends State<ChatScreen> {
     // Note: ImageSource.camera is not supported on Linux/Windows desktops.
     // We use gallery so the user can select an image file from their computer instead.
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    
+
     if (image != null) {
       setState(() {
-        _messages.add(ChatMessage(text: 'Assessing skin condition...', isUser: true, imagePath: image.path));
+        _messages.add(
+          ChatMessage(
+            text: 'Assessing skin condition...',
+            isUser: true,
+            imagePath: image.path,
+          ),
+        );
         _isLoading = true;
       });
 
@@ -214,7 +227,9 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       } catch (e) {
         setState(() {
-          _messages.add(ChatMessage(text: 'Error analyzing image: $e', isUser: false));
+          _messages.add(
+            ChatMessage(text: 'Error analyzing image: $e', isUser: false),
+          );
           _isLoading = false;
         });
       }
@@ -336,22 +351,26 @@ class _ChatScreenState extends State<ChatScreen> {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 16.0),
       child: Row(
-        mainAxisAlignment: message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: message.isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           if (!message.isUser)
             CircleAvatar(
-              child: Icon(Icons.medical_services),
               backgroundColor: Colors.blue.shade100,
+              child: Icon(Icons.medical_services),
             ),
           Expanded(
             child: Column(
-              crossAxisAlignment: message.isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              crossAxisAlignment: message.isUser
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
               children: <Widget>[
                 Container(
                   padding: EdgeInsets.all(12),
-                  margin: message.isUser 
-                      ? EdgeInsets.only(left: 40) 
+                  margin: message.isUser
+                      ? EdgeInsets.only(left: 40)
                       : EdgeInsets.only(right: 40, left: 10),
                   decoration: BoxDecoration(
                     color: message.isUser ? Colors.blue : Colors.grey.shade200,
@@ -373,9 +392,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       if (message.isUser)
                         Text(
                           message.text,
-                          style: TextStyle(
-                            color: Colors.white,
-                          ),
+                          style: TextStyle(color: Colors.white),
                         )
                       else
                         Column(
@@ -529,8 +546,8 @@ class _ChatScreenState extends State<ChatScreen> {
             Container(
               margin: EdgeInsets.only(left: 10),
               child: CircleAvatar(
-                child: Icon(Icons.person),
                 backgroundColor: Colors.grey.shade300,
+                child: Icon(Icons.person),
               ),
             ),
         ],
@@ -560,7 +577,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 controller: _textController,
                 onSubmitted: _handleSubmitted,
                 decoration: InputDecoration.collapsed(
-                    hintText: "Describe a symptom..."),
+                  hintText: "Describe a symptom...",
+                ),
               ),
             ),
             Container(
@@ -579,10 +597,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('MedApp Assistant'),
-        elevation: 1,
-      ),
+      appBar: AppBar(title: Text('MedApp Assistant'), elevation: 1),
       body: Column(
         children: <Widget>[
           Flexible(

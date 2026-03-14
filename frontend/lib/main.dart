@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'screens/login_screen.dart';
+import 'package:frontend/screens/home_screen.dart';
+import 'package:frontend/screens/login_screen.dart';
+import 'screens/chat_screen.dart';
 
 void main() {
   runApp(const MedApp());
@@ -12,12 +14,13 @@ class MedApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'MedApp Assistant',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-      ),
-      home: const LoginScreen(),
+      theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
       debugShowCheckedModeBanner: false,
+      home: const LoginScreen(),
+      routes: {
+        '/homepage': (context) => const KampungHealthHome(),
+        '/chat': (context) => const ChatScreen(),
+      },
     );
   }
 }
