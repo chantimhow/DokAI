@@ -1,9 +1,14 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/chat_message.dart';
 import '../services/api_service.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ChatScreen extends StatefulWidget {
   @override
@@ -15,6 +20,137 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _textController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
+
+  final FlutterTts _flutterTts = FlutterTts();
+  String? _currentlySpeakingText;
+
+  late stt.SpeechToText _speechToText;
+  bool _isListening = false;
+  bool _speechEnabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _speechToText = stt.SpeechToText();
+    _initSpeech();
+    _initTts();
+  }
+
+  void _initSpeech() async {
+    // Moved initialization to _listen() to ensure user interaction on Web
+  }
+
+  void _listen() async {
+    if (!_speechEnabled) {
+      _speechEnabled = await _speechToText.initialize(
+        onError: (val) {
+          print('Speech Error: $val');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Mic Error: $val. Your browser might not support Web Speech API.')),
+            );
+            setState(() => _isListening = false);
+          }
+        },
+        onStatus: (val) {
+          if (val == 'done' || val == 'notListening') {
+            if (mounted) setState(() => _isListening = false);
+          }
+        },
+      );
+      if (mounted) setState(() {});
+    }
+
+    if (_speechEnabled) {
+      if (!_isListening) {
+        setState(() => _isListening = true);
+        _speechToText.listen(
+          onResult: (val) {
+            if (mounted) {
+              setState(() {
+                _textController.text = val.recognizedWords;
+              });
+            }
+          },
+          pauseFor: const Duration(seconds: 5),
+          listenFor: const Duration(seconds: 60),
+        );
+      } else {
+        setState(() => _isListening = false);
+        _speechToText.stop();
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Speech recognition is not available or disabled in this browser.')),
+        );
+      }
+    }
+  }
+
+  void _initTts() {
+    _flutterTts.setCompletionHandler(() {
+      if (mounted) {
+        setState(() {
+          _currentlySpeakingText = null;
+        });
+      }
+    });
+    _flutterTts.setErrorHandler((msg) {
+      print("TTS Error: $msg");
+      if (mounted) {
+        setState(() {
+          _currentlySpeakingText = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('TTS Error: $msg. Your browser may lack audio drivers.')),
+        );
+      }
+    });
+    _flutterTts.getVoices.then((voices) {
+      print("Available web voices: $voices");
+      if (voices == null || (voices as List).isEmpty) {
+        print("WARNING: Browser returned 0 TTS voices.");
+      }
+    });
+  }
+
+  Future<void> _speak(String text) async {
+    if (_currentlySpeakingText != null) {
+      await _stop();
+    }
+    
+    await _flutterTts.setVolume(1.0);
+    // 1.0 is default.
+    await _flutterTts.setSpeechRate(1.0);
+    await _flutterTts.setPitch(1.0);
+
+    if (text.isNotEmpty && mounted) {
+      setState(() {
+        _currentlySpeakingText = text;
+      });
+      var cleanText = text.replaceAll(RegExp(r'\*\*|\*|#|-|`'), '');
+      var result = await _flutterTts.speak(cleanText);
+      if (result != 1) {
+        print("TTS failed to speak.");
+      }
+    }
+  }
+
+  Future<void> _stop() async {
+    await _flutterTts.stop();
+    if (mounted) {
+      setState(() {
+        _currentlySpeakingText = null;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _flutterTts.stop();
+    super.dispose();
+  }
 
   void _handleSubmitted(String text) async {
     _textController.clear();
@@ -28,10 +164,19 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       final response = await ApiService.sendMessage(text);
+      String rawText = response.response;
+      bool triggerSearch = rawText.contains("[URGENT_CLINIC_SEARCH]");
+      String cleanText = rawText.replaceAll("[URGENT_CLINIC_SEARCH]", "").trim();
+
+      ChatMessage aiMessage = ChatMessage(text: cleanText, isUser: false);
       setState(() {
-        _messages.add(ChatMessage(text: response.response, isUser: false));
+        _messages.add(aiMessage);
         _isLoading = false;
       });
+
+      if (triggerSearch) {
+        _findNearbyClinics(aiMessage);
+      }
     } catch (e) {
       setState(() {
         _messages.add(ChatMessage(text: 'Error communicating with server: $e', isUser: false));
@@ -52,15 +197,136 @@ class _ChatScreenState extends State<ChatScreen> {
       });
 
       try {
-        final response = await ApiService.sendImage(File(image.path), "Please analyze this skin condition.");
+        final bytes = await image.readAsBytes();
+        final response = await ApiService.sendImageBytes(bytes, image.name, "Please analyze this skin condition.");
+        String rawText = response.response;
+        bool triggerSearch = rawText.contains("[URGENT_CLINIC_SEARCH]");
+        String cleanText = rawText.replaceAll("[URGENT_CLINIC_SEARCH]", "").trim();
+
+        ChatMessage aiMessage = ChatMessage(text: cleanText, isUser: false);
         setState(() {
-          _messages.add(ChatMessage(text: response.response, isUser: false));
+          _messages.add(aiMessage);
           _isLoading = false;
         });
+
+        if (triggerSearch) {
+          _findNearbyClinics(aiMessage);
+        }
       } catch (e) {
         setState(() {
           _messages.add(ChatMessage(text: 'Error analyzing image: $e', isUser: false));
           _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _findNearbyClinics(ChatMessage message) async {
+    print("UI: Triggering Clinic Search...");
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        print("UI: Location Service Disabled!");
+        if (mounted) {
+          setState(() {
+            message.clinics = [{'name': 'Location service disabled on your device/browser.', 'distance': ''}];
+          });
+        }
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      print("UI: Initial Permission state: $permission");
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        print("UI: Requested Permission state: $permission");
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            setState(() {
+              message.clinics = [{'name': 'Location permission denied by user.', 'distance': ''}];
+            });
+          }
+          return;
+        }
+      }
+      
+      if (permission == LocationPermission.deniedForever) {
+        print("UI: Permission Denied Forever!");
+        if (mounted) {
+          setState(() {
+            message.clinics = [{'name': 'Location permission permanently denied.', 'distance': ''}];
+          });
+        }
+        return;
+      }
+
+      print("UI: Fetching GPS coordinates...");
+      Position? position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          timeLimit: const Duration(seconds: 5),
+        );
+        print("UI: Location obtained: \${position.latitude}, \${position.longitude}");
+      } catch (e) {
+        print("UI: Geolocator failed: $e. Falling back to IP location...");
+        final ipLoc = await ApiService.getIpLocation();
+        
+        double lat = 3.1390; // Default KL
+        double lon = 101.6869;
+        
+        if (ipLoc != null) {
+          lat = ipLoc['latitude']!;
+          lon = ipLoc['longitude']!;
+          print("UI: IP Location obtained: $lat, $lon");
+        } else {
+          print("UI: IP fallback failed. Using default KL coordinates.");
+        }
+        
+        position = Position(
+          latitude: lat,
+          longitude: lon,
+          timestamp: DateTime.now(),
+          accuracy: 100.0,
+          altitude: 0.0,
+          altitudeAccuracy: 0.0,
+          heading: 0.0,
+          headingAccuracy: 0.0,
+          speed: 0.0,
+          speedAccuracy: 0.0,
+        );
+      }
+      
+      print("UI: Querying OpenStreetMap via Backend Proxy...");
+      final elements = await ApiService.getNearbyClinics(position.latitude, position.longitude);
+      
+      List<Map<String, dynamic>> foundClinics = [];
+      for (var el in elements) {
+          if (el.containsKey('tags') && el['tags'].containsKey('name')) {
+            double clLat = el['lat'];
+            double clLon = el['lon'];
+            double distanceInMeters = Geolocator.distanceBetween(
+              position.latitude, position.longitude, clLat, clLon);
+            
+            foundClinics.add({
+              'name': el['tags']['name'],
+              'distance': (distanceInMeters / 1000).toStringAsFixed(1) + " km",
+              'lat': clLat,
+              'lon': clLon,
+              'phone': el['tags']['phone'] ?? el['tags']['contact:phone'],
+            });
+          }
+        }
+        
+        setState(() {
+          message.clinics = foundClinics.isNotEmpty 
+            ? foundClinics 
+            : [{'name': 'No clinics found within 5km', 'distance': ''}];
+        });
+    } catch (e) {
+      print("Error fetching clinics: $e");
+      if (mounted) {
+        setState(() {
+           message.clinics = [{'name': 'Location Error: $e', 'distance': ''}];
         });
       }
     }
@@ -99,7 +365,9 @@ class _ChatScreenState extends State<ChatScreen> {
                           padding: const EdgeInsets.only(bottom: 8.0),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: Image.file(File(message.imagePath!), height: 150, fit: BoxFit.cover),
+                            child: kIsWeb 
+                                ? Image.network(message.imagePath!, height: 150, fit: BoxFit.cover)
+                                : Image.file(File(message.imagePath!), height: 150, fit: BoxFit.cover),
                           ),
                         ),
                       if (message.isUser)
@@ -110,13 +378,146 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                         )
                       else
-                        MarkdownBody(
-                          data: message.text,
-                          styleSheet: MarkdownStyleSheet(
-                            p: const TextStyle(color: Colors.black87),
-                            listBullet: const TextStyle(color: Colors.black87),
-                            strong: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            MarkdownBody(
+                              data: message.text,
+                              styleSheet: MarkdownStyleSheet(
+                                p: const TextStyle(color: Colors.black87),
+                                listBullet: const TextStyle(color: Colors.black87),
+                                strong: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            InkWell(
+                              onTap: () {
+                                if (_currentlySpeakingText == message.text) {
+                                  _stop();
+                                } else {
+                                  _speak(message.text);
+                                }
+                              },
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _currentlySpeakingText == message.text
+                                        ? Icons.stop_circle_outlined
+                                        : Icons.volume_up_outlined,
+                                    color: Colors.blue.shade700,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _currentlySpeakingText == message.text ? "Stop" : "Listen",
+                                    style: TextStyle(
+                                      color: Colors.blue.shade700,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (message.clinics != null)
+                              Container(
+                                margin: const EdgeInsets.only(top: 12),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: Colors.red.shade200),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(Icons.local_hospital, color: Colors.red, size: 20),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          "Nearby Urgent Care:",
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.red.shade900,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    ...message.clinics!.map((clinic) => Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  clinic['name'] ?? 'Unknown Clinic',
+                                                  style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              Text(
+                                                clinic['distance'] ?? '',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.grey.shade700,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          if (clinic['lat'] != null && clinic['lon'] != null)
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.start,
+                                              children: [
+                                                TextButton.icon(
+                                                  onPressed: () async {
+                                                    final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=${clinic['lat']},${clinic['lon']}');
+                                                    if (await canLaunchUrl(url)) {
+                                                      await launchUrl(url);
+                                                    }
+                                                  },
+                                                  icon: Icon(Icons.directions, size: 16),
+                                                  label: Text('Directions'),
+                                                  style: TextButton.styleFrom(
+                                                    padding: EdgeInsets.zero,
+                                                    minimumSize: Size(50, 30),
+                                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                    alignment: Alignment.centerLeft,
+                                                  ),
+                                                ),
+                                                if (clinic['phone'] != null) ...[
+                                                  const SizedBox(width: 16),
+                                                  TextButton.icon(
+                                                    onPressed: () async {
+                                                      final url = Uri.parse('tel:${clinic['phone']}');
+                                                      if (await canLaunchUrl(url)) {
+                                                        await launchUrl(url);
+                                                      }
+                                                    },
+                                                    icon: Icon(Icons.phone, size: 16),
+                                                    label: Text('Call'),
+                                                    style: TextButton.styleFrom(
+                                                      padding: EdgeInsets.zero,
+                                                      minimumSize: Size(50, 30),
+                                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                    ),
+                                                  ),
+                                                ]
+                                              ],
+                                            ),
+                                          Divider(color: Colors.red.shade100),
+                                        ],
+                                      ),
+                                    )).toList(),
+                                  ],
+                                ),
+                              ),
+                          ],
                         ),
                     ],
                   ),
@@ -147,6 +548,12 @@ class _ChatScreenState extends State<ChatScreen> {
             IconButton(
               icon: Icon(Icons.camera_alt),
               onPressed: _getImage,
+            ),
+            IconButton(
+              icon: Icon(_isListening ? Icons.mic : Icons.mic_none),
+              color: _isListening ? Colors.red : Theme.of(context).primaryColor,
+              onPressed: _listen,
+              tooltip: 'Listen',
             ),
             Flexible(
               child: TextField(

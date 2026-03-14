@@ -49,4 +49,54 @@ class ApiService {
       throw Exception('Failed to send image: ${response.statusCode}');
     }
   }
+
+  static Future<ChatResponse> sendImageBytes(List<int> bytes, String filename, String description) async {
+    var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/scan'));
+    
+    request.fields['description'] = description;
+    
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'image',
+        bytes,
+        filename: filename,
+      ),
+    );
+
+    var streamedResponse = await request.send();
+    var response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200) {
+      return ChatResponse.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception('Failed to send image: ${response.statusCode}');
+    }
+  }
+
+  static Future<List<dynamic>> getNearbyClinics(double lat, double lon) async {
+    final response = await http.get(Uri.parse('$baseUrl/clinics?lat=$lat&lon=$lon'));
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['elements'] as List<dynamic>;
+    } else {
+      throw Exception('Failed to fetch clinics: ${response.statusCode}');
+    }
+  }
+
+  static Future<Map<String, double>?> getIpLocation() async {
+    try {
+      final response = await http.get(Uri.parse('https://ipapi.co/json/'));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          // Sometimes it returns strings or ints, parsing safely
+          'latitude': double.tryParse(data['latitude'].toString()) ?? 3.1390,
+          'longitude': double.tryParse(data['longitude'].toString()) ?? 101.6869,
+        };
+      }
+    } catch (e) {
+      print('IP Location fallback failed: $e');
+    }
+    return null;
+  }
 }
