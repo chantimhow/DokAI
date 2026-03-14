@@ -1,0 +1,9 @@
+# Python Environment Secrets
+.env
+credentials.json
+backend/credentials.json
+
+# Cache Files
+__pycache__/
+*.pyc
+*.pyo
