@@ -131,9 +131,7 @@ class ChatScreenState extends State<ChatScreen> {
                       if (message.isUser)
                         Text(
                           message.text,
-                          style: TextStyle(
-                            color: Colors.white,
-                          ),
+                          style: TextStyle(color: Colors.white),
                         )
                       else
                         MarkdownBody(
@@ -141,7 +139,10 @@ class ChatScreenState extends State<ChatScreen> {
                           styleSheet: MarkdownStyleSheet(
                             p: const TextStyle(color: Colors.black87),
                             listBullet: const TextStyle(color: Colors.black87),
-                            strong: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+                            strong: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
                           ),
                         ),
                     ],

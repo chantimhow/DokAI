@@ -1,147 +1,279 @@
 import 'package:flutter/material.dart';
+import 'chat_screen.dart';
 
-void main() => runApp(const MaterialApp(home: KampungHealthHome()));
-
-class KampungHealthHome extends StatelessWidget {
+class KampungHealthHome extends StatefulWidget {
   const KampungHealthHome({super.key});
+
+  @override
+  State<KampungHealthHome> createState() => _KampungHealthHomeState();
+}
+
+class _KampungHealthHomeState extends State<KampungHealthHome> {
+  int _selectedIndex = 0;
+
+  late final List<Widget> _pages = [
+    _buildMediScanContent(), // Your new modern homepage
+    const Center(child: Text('Emergency Services')),
+    const Center(child: Text('Clinic Info')),
+  ];
+
+  void _onItemTapped(int index) {
+    setState(() => _selectedIndex = index);
+  }
+
+  // Common navigation function to keep your existing functionality
+  void _navigateToChat() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => const ChatScreen()));
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // --- Header Section ---
-              const Text(
-                'KampungHealth.',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-              ),
-              const Text(
-                '- Your Personal Health Assistant -',
-                style: TextStyle(fontSize: 16, color: Colors.black54),
-              ),
-              const SizedBox(height: 25),
-
-              //
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.black, width: 2),
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Tell us about your symptoms',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildInputOption(Icons.mic, 'Voice Input'),
-                        _buildInputOption(Icons.camera_alt, 'Take Picture'),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 25),
-
-              //
-              const Text(
-                'Choose your symptoms',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 15),
-              Expanded(
-                child: GridView.count(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 15,
-                  mainAxisSpacing: 15,
-                  childAspectRatio: 2.2,
-                  children: [
-                    _buildSymptomCard(
-                      'Cough',
-                      Icons.face,
-                    ), // Replace with custom icons
-                    _buildSymptomCard('Fever', Icons.thermostat),
-                    _buildSymptomCard('Skin\nIssues', Icons.back_hand),
-                    _buildSymptomCard(
-                      'Stomach\nPain',
-                      Icons.monitor_weight_outlined,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      // --- Bottom Navigation ---
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: Colors.black.withValues(alpha: 0.1),
-              width: 1,
-            ),
-          ),
-        ),
-        child: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: Colors.black,
-          unselectedItemColor: Colors.black54,
-          currentIndex: 0,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: ''),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.medical_services_outlined),
-              label: 'Emergency Call',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.info_outline),
-              label: 'Information\nClinic',
-            ),
-          ],
-        ),
-      ),
+      appBar: _buildAppBar(),
+      body: _pages[_selectedIndex],
+      bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
-  // Helper for Top Input Options (Cakap/Ambil Gambar)
-  Widget _buildInputOption(IconData icon, String label) {
-    return Column(
-      children: [
-        Icon(icon, size: 40, color: Colors.black),
-        const SizedBox(height: 8),
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      backgroundColor: Colors.white,
+      elevation: 0,
+      title: Row(
+        children: const [
+          Icon(Icons.add_a_photo, color: Color(0xFF009688), size: 28),
+          SizedBox(width: 8),
+          Text(
+            'MediScan ',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          ),
+          Text(
+            'AI',
+            style: TextStyle(
+              color: Color(0xFF009688),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        const CircleAvatar(
+          radius: 15,
+          backgroundColor: Color(0xFF009688),
+          child: Icon(Icons.person, size: 20, color: Colors.white),
+        ),
       ],
     );
   }
 
-  // Helper for Symptom Grid Cards
-  Widget _buildSymptomCard(String title, IconData icon) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.black, width: 1.5),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildMediScanContent() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 30),
-          const SizedBox(width: 10),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          // --- Main Scanner Section (Replaces your "Take Picture" button) ---
+          _buildScannerHero(),
+
+          // --- Description Bar (Replaces your "Voice Input" button) ---
+          _buildDescriptionBar(),
+
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 24, 16, 16),
+            child: Text(
+              "Your Health Assistant",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
+
+          _buildAssistantGrid(),
+
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              "My Care History",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
+
+          _buildCareHistoryList(),
         ],
       ),
+    );
+  }
+
+  Widget _buildScannerHero() {
+    return Container(
+      width: double.infinity,
+      height: 300,
+      decoration: const BoxDecoration(
+        color: Color(0xFFF0F9F8), // Soft background tint
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // The Glowing Camera Button (Functional)
+          GestureDetector(
+            onTap: _navigateToChat, // Triggers your existing camera/chat logic
+            child: Container(
+              padding: const EdgeInsets.all(25),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withValues(alpha: 0.3),
+                    blurRadius: 40,
+                    spreadRadius: 10,
+                  ),
+                ],
+                gradient: const LinearGradient(
+                  colors: [Colors.blue, Colors.lightBlueAccent],
+                ),
+              ),
+              child: const Icon(
+                Icons.camera_alt,
+                color: Colors.white,
+                size: 50,
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            "TAP TO SCAN SYMPTOM",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+          const Text(
+            "Take a photo of a rash or injury for AI analysis.",
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.black54),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDescriptionBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: InkWell(
+        onTap: _navigateToChat, // Triggers your existing voice/text chat logic
+        borderRadius: BorderRadius.circular(30),
+        child: Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Row(
+            children: const [
+              Icon(Icons.face_unlock_outlined, size: 20),
+              SizedBox(width: 10),
+              Expanded(child: Text("OR DESCRIBE SYMPTOMS (TEXT/VOICE)")),
+              Icon(Icons.mic, color: Color(0xFF009688)),
+              SizedBox(width: 10),
+              Icon(Icons.edit, color: Colors.grey),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAssistantGrid() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _buildAssistantCard(
+          "AI Symptom\nChecker",
+          Icons.psychology_outlined,
+          true,
+        ),
+        _buildAssistantCard(
+          "Book GP\nAppointment",
+          Icons.calendar_today,
+          false,
+        ),
+        _buildAssistantCard(
+          "Medication\nTracker",
+          Icons.medication_outlined,
+          false,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAssistantCard(String title, IconData icon, bool highlighted) {
+    return Container(
+      width: 100,
+      height: 110,
+      decoration: BoxDecoration(
+        color: highlighted ? const Color(0xFFE0F2F1) : Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: const Color(0xFF009688)),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCareHistoryList() {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 2,
+      itemBuilder: (context, index) {
+        return ListTile(
+          leading: Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          title: Text(
+            index == 0 ? "Jan 15: Wrist Rash" : "Jan 12: Leg Bruise",
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          subtitle: const Text(
+            "Analyzed - View Report",
+            style: TextStyle(color: Color(0xFF009688)),
+          ),
+          trailing: const Icon(Icons.chevron_right),
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomNavBar() {
+    return BottomNavigationBar(
+      currentIndex: _selectedIndex,
+      onTap: _onItemTapped,
+      selectedItemColor: const Color(0xFF009688),
+      type: BottomNavigationBarType.fixed,
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.chat_bubble_outline),
+          label: 'Chat',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.favorite_border),
+          label: 'Health',
+        ),
+      ],
     );
   }
 }

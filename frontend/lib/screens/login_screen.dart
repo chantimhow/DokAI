@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter/foundation.dart';
-import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
-import 'package:google_sign_in_web/google_sign_in_web.dart' as web;
-import 'chat_screen.dart';
+import 'home_screen.dart'; // Make sure this import matches your file name
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,67 +9,38 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  // Controllers to grab the text from the fields
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
   bool _isLoading = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _initGoogleSignIn();
-  }
+  void _handleLogin() async {
+    setState(() => _isLoading = true);
 
-  Future<void> _initGoogleSignIn() async {
-    try {
-      // The new API requires initialization
-      await GoogleSignIn.instance.initialize(
-        clientId:
-            '363057669883-eahq4tkqcveoqvgou3elonjobgtf11jl.apps.googleusercontent.com',
-      );
+    // Simulate a network delay (makes the app feel "real")
+    await Future.delayed(const Duration(seconds: 1));
 
-      // Attempt to silently sign in if already authenticated
-      final attemptFuture = GoogleSignIn.instance
-          .attemptLightweightAuthentication();
-      if (attemptFuture != null) {
-        final account = await attemptFuture;
-        if (account != null && mounted) {
-          _navigateToChat();
-        }
-      }
-    } catch (e) {
-      debugPrint("Error checking sign-in status: $e");
-    }
-  }
+    setState(() => _isLoading = false);
 
-  void _navigateToChat() {
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (context) => ChatScreen()));
-  }
-
-  Future<void> _handleSignIn() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      await GoogleSignIn.instance.authenticate(scopeHint: ['email', 'profile']);
+    // HARDCODED LOGIC:
+    // Username: admin
+    // Password: password123
+    if (_usernameController.text == 'admin' &&
+        _passwordController.text == 'password123') {
       if (mounted) {
-        _navigateToChat();
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Sign in failed: $error\nEnsure OAuth Client ID is configured.',
-            ),
-          ),
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const KampungHealthHome()),
         );
       }
-    } finally {
+    } else {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Invalid credentials! Try admin / password123'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
       }
     }
   }
@@ -81,89 +48,111 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF1FDFB), // Match home screen background
       body: Center(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(32.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // --- App Logo/Icon ---
               Container(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
+                  color: const Color(0xFF009688).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  Icons.medical_services,
+                child: const Icon(
+                  Icons.health_and_safety_rounded,
                   size: 80,
-                  color: Colors.blue.shade600,
+                  color: Color(0xFF009688),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'KampungHealth',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF00796B),
+                ),
+              ),
+              const Text(
+                'Selamat Datang Kembali',
+                style: TextStyle(color: Colors.black54),
+              ),
+              const SizedBox(height: 48),
+
+              // --- Username Field ---
+              TextField(
+                controller: _usernameController,
+                decoration: InputDecoration(
+                  labelText: 'Username',
+                  prefixIcon: const Icon(Icons.person_outline),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // --- Password Field ---
+              TextField(
+                controller: _passwordController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
                 ),
               ),
               const SizedBox(height: 32),
-              const Text(
-                'MedApp Assistant',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -0.5,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Your AI Medical Companion',
-                style: TextStyle(fontSize: 16, color: Colors.black54),
-              ),
-              const SizedBox(height: 64),
-              if (_isLoading)
-                const CircularProgressIndicator()
-              else if (kIsWeb)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: (GoogleSignInPlatform.instance as web.GoogleSignInPlugin).renderButton(),
-                )
-              else
-                ElevatedButton.icon(
-                  onPressed: _handleSignIn,
-                  icon: Image.network(
-                    'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg',
-                    height: 24,
-                  ),
-                  label: const Text(
-                    'Sign in with Google',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                  ),
+
+              // --- Login Button ---
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _handleLogin,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.grey.shade200,
-                    elevation: 2,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 16,
-                    ),
+                    backgroundColor: const Color(0xFF009688),
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: Colors.grey.shade300),
                     ),
                   ),
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'Login',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
-              
-              const SizedBox(height: 16),
-              
-              TextButton(
-                onPressed: _navigateToChat,
-                child: const Text('Skip for now (Testing)'),
               ),
 
-              const SizedBox(height: 24),
-              const Text(
-                'Requires an Internet connection.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+              const SizedBox(height: 20),
+              TextButton(
+                onPressed: () {
+                  // Direct bypass for testing
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => const KampungHealthHome(),
+                    ),
+                  );
+                },
+                child: const Text(
+                  'Bypass Login (Developer Mode)',
+                  style: TextStyle(color: Colors.teal),
+                ),
               ),
             ],
           ),

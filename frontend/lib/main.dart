@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/screens/home_screen.dart';
+import 'package:frontend/screens/login_screen.dart';
 import 'screens/chat_screen.dart';
 
 void main() {
@@ -15,7 +16,7 @@ class MedApp extends StatelessWidget {
       title: 'MedApp Assistant',
       theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
       debugShowCheckedModeBanner: false,
-      home: const KampungHealthHome(),
+      home: const LoginScreen(),
       routes: {
         '/homepage': (context) => const KampungHealthHome(),
         '/chat': (context) => const ChatScreen(),
