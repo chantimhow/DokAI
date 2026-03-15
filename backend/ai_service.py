@@ -119,6 +119,10 @@ async def analyze_image(image_bytes: bytes, mime_type: str, user_description: st
             f"<start_of_turn>model\n"
         )
         
+        instances = [{
+            "prompt": conversational_prompt
+        }]
+        
         # 4. Request Prediction from the SDK
         # CRUCIAL: Vertex Model Garden vLLM containers IGNORE the python SDK's `parameters={}` argument!
         # You MUST inject `max_tokens` directly into the payload instance dictionary!
