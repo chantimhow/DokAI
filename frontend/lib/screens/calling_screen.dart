@@ -53,28 +53,34 @@ class _CallProgressScreenState extends State<CallProgressScreen>
     return Scaffold(
       backgroundColor: Colors.white, 
       appBar: AppBar(
+        toolbarHeight: 90, 
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
-          // Triggers the callback to return to the initial emergency screen
-          onPressed: widget.onBack, 
+        leading: Padding(
+          padding: const EdgeInsets.only(top: 20.0), 
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
+            onPressed: widget.onBack, 
+          ),
         ),
-        title: const Text(
-          'Emergency Call in Progress',
-          style: TextStyle(
-            color: Color(0xFFD32F2F), // Urgent Red
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
+        title: const Padding(
+          padding: EdgeInsets.only(top: 30.0), 
+          child: Text(
+            'EMERGENCY CALL\nIN PROGRESS',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFFD32F2F), 
+              fontWeight: FontWeight.bold,
+              fontSize: 25,
+            ),
           ),
         ),
         centerTitle: true,
       ),
       body: SafeArea(
-        // --- FIX: Wrapped in Center and added mainAxisAlignment ---
         child: Center(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center, // Centers vertically
+            mainAxisAlignment: MainAxisAlignment.center, 
             children: [
               // --- Header Text ---
               const Text(
@@ -82,7 +88,7 @@ class _CallProgressScreenState extends State<CallProgressScreen>
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.black87,
-                  fontSize: 18,
+                  fontSize: 20,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -98,7 +104,6 @@ class _CallProgressScreenState extends State<CallProgressScreen>
                     return Stack(
                       alignment: Alignment.center,
                       children: [
-                        // Outer expanding ring
                         Container(
                           width: 220 * _animationController.value,
                           height: 220 * _animationController.value,
@@ -110,7 +115,6 @@ class _CallProgressScreenState extends State<CallProgressScreen>
                             ),
                           ),
                         ),
-                        // Middle ring
                         Container(
                           width: 150 + (30 * _animationController.value),
                           height: 150 + (30 * _animationController.value),
@@ -123,7 +127,6 @@ class _CallProgressScreenState extends State<CallProgressScreen>
                             ),
                           ),
                         ),
-                        // Core glowing circle
                         Container(
                           width: 100,
                           height: 100,
@@ -151,7 +154,7 @@ class _CallProgressScreenState extends State<CallProgressScreen>
               Text(
                 _formattedTime,
                 style: const TextStyle(
-                  fontSize: 48,
+                  fontSize: 45,
                   fontWeight: FontWeight.w300,
                   color: Colors.black87,
                 ),
@@ -163,10 +166,10 @@ class _CallProgressScreenState extends State<CallProgressScreen>
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 40.0),
                 child: Text(
-                  "Stay calm, help is on the way!\nOur AI has shared your medical info.",
+                  "Stay calm, help is on the way!\nOur AI assistant has shared your medical info.",
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 20,
                     color: Colors.black87,
                     height: 1.4,
                     fontWeight: FontWeight.w500,
@@ -174,7 +177,32 @@ class _CallProgressScreenState extends State<CallProgressScreen>
                 ),
               ),
               
-              // --- FIX: Removed the Spacer() that was here! ---
+              const SizedBox(height: 50), // Spacing before the button
+
+              // --- NEW: Cancel Call Button ---
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40.0),
+                child: OutlinedButton(
+                  // This triggers the AnimatedSwitcher in your wrapper to fade back to the main screen!
+                  onPressed: widget.onBack, 
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFD32F2F),
+                    side: const BorderSide(color: Color(0xFFD32F2F), width: 2),
+                    minimumSize: const Size(double.infinity, 54),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                  ),
+                  child: const Text(
+                    "CANCEL CALL",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
