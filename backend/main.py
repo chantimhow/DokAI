@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import os
@@ -24,6 +24,7 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     message: str
+    history: Optional[List[Dict[str, Any]]] = []
     
 class ChatResponse(BaseModel):
     response: str
@@ -36,7 +37,7 @@ async def chat_endpoint(request: ChatRequest):
     """
     try:
         # Call the AI service
-        ai_response = await ai_service.generate_chat_response(request.message)
+        ai_response = await ai_service.generate_chat_response(request.message, request.history)
         return ChatResponse(response=ai_response)
     except Exception as e:
         print(f"Error in /api/chat: {e}")

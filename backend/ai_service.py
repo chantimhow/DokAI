@@ -35,21 +35,30 @@ Always encourage preventative care and visiting a local professional when in dou
 ### CRITICAL INSTRUCTION FOR EMERGENCIES:
 If you determine the user's symptoms sound like a medical emergency (Urgent), you MUST append the exact text `[URGENT_CLINIC_SEARCH]` at the very end of your response. This hidden tag will trigger the app's GPS locator to find nearby hospitals automatically."""
 
-async def generate_chat_response(prompt: str) -> str:
+async def generate_chat_response(prompt: str, history: list = None) -> str:
     """
     Generates a response for a text-based symptom description using Flextoken API.
     """
+    if history is None:
+        history = []
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {API_KEY}"
     }
     
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    
+    for msg in history:
+        messages.append({
+            "role": msg.get("role", "user"),
+            "content": msg.get("content", "")
+        })
+        
+    messages.append({"role": "user", "content": prompt})
+
     data = {
         "model": MODEL_NAME,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": prompt}
-        ],
+        "messages": messages,
         "max_completion_tokens": 4096,
         "temperature": 0.1,
         "top_p": 0.9

@@ -32,10 +32,10 @@ class _KampungHealthHomeState extends State<KampungHealthHome> {
     setState(() => _selectedIndex = index);
   }
 
-  void _navigateToChat() {
+  void _navigateToChat({bool openCamera = false}) {
     Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (context) => const ChatScreen()));
+    ).push(MaterialPageRoute(builder: (context) => ChatScreen(autoOpenImagePicker: openCamera)));
   }
 
   @override
@@ -108,7 +108,7 @@ class _KampungHealthHomeState extends State<KampungHealthHome> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           GestureDetector(
-            onTap: _navigateToChat,
+            onTap: () => _navigateToChat(openCamera: true),
             child: Container(
               padding: const EdgeInsets.all(25),
               decoration: BoxDecoration(
@@ -150,7 +150,7 @@ class _KampungHealthHomeState extends State<KampungHealthHome> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: InkWell(
-        onTap: _navigateToChat,
+        onTap: () => _navigateToChat(openCamera: false),
         borderRadius: BorderRadius.circular(30),
         child: Container(
           padding: const EdgeInsets.all(15),

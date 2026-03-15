@@ -1,22 +1,24 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import '../models/chat_response.dart';
 
 class ApiService {
   // Use 10.0.2.2 for Android emulator to access localhost
   // OR use your actual local IP address (e.g., 192.168.x.x) if testing on a physical device.
   // For simplicity, we assume we are running the backend on the same machine on port 8000
-  static const String baseUrl = "http://10.0.2.2:8000";
+  static const String baseUrl = "http://127.0.0.1:8000/api";
   
-  static Future<ChatResponse> sendMessage(String text) async {
+  static Future<ChatResponse> sendMessage(String text, {List<Map<String, String>> history = const []}) async {
     final response = await http.post(
       Uri.parse('$baseUrl/chat'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
       },
-      body: jsonEncode(<String, String>{
+      body: jsonEncode(<String, dynamic>{
         'message': text,
+        'history': history,
       }),
     );
 
@@ -60,6 +62,7 @@ class ApiService {
         'image',
         bytes,
         filename: filename,
+        contentType: MediaType('image', 'jpeg'),
       ),
     );
 

@@ -1,17 +1,20 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import '../models/chat_message.dart';
 import '../services/api_service.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'camera_screen.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  final bool autoOpenImagePicker;
+
+  const ChatScreen({super.key, this.autoOpenImagePicker = false});
 
   @override
   ChatScreenState createState() => ChatScreenState();
@@ -22,7 +25,6 @@ class ChatScreenState extends State<ChatScreen> {
   final List<ChatMessage> _messages = [];
   
   final TextEditingController _textController = TextEditingController();
-  final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
 
   final FlutterTts _flutterTts = FlutterTts();
@@ -38,6 +40,12 @@ class ChatScreenState extends State<ChatScreen> {
     _speechToText = stt.SpeechToText();
     _initSpeech();
     _initTts();
+
+    if (widget.autoOpenImagePicker) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _getImage();
+      });
+    }
   }
 
   void _initSpeech() async {
@@ -166,71 +174,98 @@ class ChatScreenState extends State<ChatScreen> {
     });
 
     try {
-      final response = await ApiService.sendMessage(text);
+      // Compile previous conversation history (excluding the current newly added message)
+      final List<Map<String, String>> history = _messages
+          .take(_messages.length - 1)
+          .map((m) => {
+                'role': m.isUser ? 'user' : 'assistant',
+                'content': m.text,
+              })
+          .toList();
+
+      final response = await ApiService.sendMessage(text, history: history);
       String rawText = response.response;
       bool triggerSearch = rawText.contains("[URGENT_CLINIC_SEARCH]");
       String cleanText = rawText.replaceAll("[URGENT_CLINIC_SEARCH]", "").trim();
 
       ChatMessage aiMessage = ChatMessage(text: cleanText, isUser: false);
-      setState(() {
-        _messages.add(aiMessage);
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _messages.add(aiMessage);
+          _isLoading = false;
+        });
+      }
 
       if (triggerSearch) {
         _findNearbyClinics(aiMessage);
       }
     } catch (e) {
-      setState(() {
-        _messages.add(
-          ChatMessage(
-            text: 'Error communicating with server: $e',
-            isUser: false,
-          ),
-        );
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _messages.add(
+            ChatMessage(
+              text: 'Error communicating with server: $e',
+              isUser: false,
+            ),
+          );
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _getImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    // We now receive a map of {'bytes': Uint8List, 'name': String} from CameraScreen
+    final dynamic imageResult = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const CameraScreen()),
+    );
 
-    if (image != null) {
-      setState(() {
-        _messages.add(
-          ChatMessage(
-            text: 'Assessing skin condition...',
-            isUser: true,
-            imagePath: image.path,
-          ),
-        );
-        _isLoading = true;
-      });
+    if (imageResult != null && imageResult is Map<String, dynamic>) {
+      final Uint8List imageBytes = imageResult['bytes'] as Uint8List;
+      final String imageName = imageResult['name'] as String;
+
+      if (mounted) {
+        setState(() {
+          _messages.add(
+            ChatMessage(
+              text: 'Assessing skin condition...',
+              isUser: true,
+              // We simulate the image path visually for the chat bubble since it's just raw bytes now
+              imagePath: imageName, 
+              imageBytes: imageBytes, 
+            ),
+          );
+          _isLoading = true;
+        });
+      }
 
       try {
-        final bytes = await image.readAsBytes();
-        final response = await ApiService.sendImageBytes(bytes, image.name, "Please analyze this skin condition.");
+        final response = await ApiService.sendImageBytes(imageBytes, imageName, "Please analyze this skin condition.");
         String rawText = response.response;
         bool triggerSearch = rawText.contains("[URGENT_CLINIC_SEARCH]");
         String cleanText = rawText.replaceAll("[URGENT_CLINIC_SEARCH]", "").trim();
 
         ChatMessage aiMessage = ChatMessage(text: cleanText, isUser: false);
-        setState(() {
-          _messages.add(aiMessage);
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _messages.add(aiMessage);
+            _isLoading = false;
+          });
+        }
 
         if (triggerSearch) {
           _findNearbyClinics(aiMessage);
         }
       } catch (e) {
-        setState(() {
-          _messages.add(
-            ChatMessage(text: 'Error analyzing image: $e', isUser: false),
-          );
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _messages.add(
+              ChatMessage(text: 'Error analyzing image: $e', isUser: false),
+            );
+            _isLoading = false;
+          });
+        }
       }
     }
   }
@@ -378,7 +413,19 @@ class ChatScreenState extends State<ChatScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (message.imagePath != null)
+                      if (message.imageBytes != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.memory(
+                              message.imageBytes!,
+                              height: 150,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        )
+                      else if (message.imagePath != null)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 8.0),
                           child: ClipRRect(
