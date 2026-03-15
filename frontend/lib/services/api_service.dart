@@ -10,7 +10,7 @@ class ApiService {
   // For simplicity, we assume we are running the backend on the same machine on port 8000
   static const String baseUrl = "http://127.0.0.1:8000/api";
   
-  static Future<ChatResponse> sendMessage(String text, {List<Map<String, String>> history = const []}) async {
+  static Future<ChatResponse> sendMessage(String text, {List<Map<String, String>> history = const [], Map<String, String>? userProfile}) async {
     final response = await http.post(
       Uri.parse('$baseUrl/chat'),
       headers: <String, String>{
@@ -19,6 +19,7 @@ class ApiService {
       body: jsonEncode(<String, dynamic>{
         'message': text,
         'history': history,
+        'user_profile': userProfile,
       }),
     );
 
@@ -29,10 +30,14 @@ class ApiService {
     }
   }
 
-  static Future<ChatResponse> sendImage(File imageFile, String description) async {
+  static Future<ChatResponse> sendImage(File imageFile, String description, {Map<String, String>? userProfile}) async {
     var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/scan'));
     
     request.fields['description'] = description;
+    
+    if (userProfile != null) {
+      request.fields['user_profile'] = jsonEncode(userProfile);
+    }
     
     // Add the image
     request.files.add(
@@ -52,10 +57,14 @@ class ApiService {
     }
   }
 
-  static Future<ChatResponse> sendImageBytes(List<int> bytes, String filename, String description) async {
+  static Future<ChatResponse> sendImageBytes(List<int> bytes, String filename, String description, {Map<String, String>? userProfile}) async {
     var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/scan'));
     
     request.fields['description'] = description;
+
+    if (userProfile != null) {
+      request.fields['user_profile'] = jsonEncode(userProfile);
+    }
     
     request.files.add(
       http.MultipartFile.fromBytes(

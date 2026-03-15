@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Needed for input formatting (numbers only)
+import 'package:flutter/services.dart'; 
+import 'package:shared_preferences/shared_preferences.dart';
+import 'home_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -16,6 +18,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _allergies = "None";
   String _emergencyContact = "Not set";
   String _medicalConditions = "None";
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileData();
+  }
+
+  Future<void> _loadProfileData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _name = prefs.getString('profile_name') ?? "Not set";
+      _age = prefs.getString('profile_age') ?? "Not set";
+      _bloodType = prefs.getString('profile_bloodType') ?? "Not set";
+      _allergies = prefs.getString('profile_allergies') ?? "None";
+      _emergencyContact = prefs.getString('profile_emergencyContact') ?? "Not set";
+      _medicalConditions = prefs.getString('profile_medicalConditions') ?? "None";
+    });
+  }
 
   // --- REUSABLE DIALOG WITH VALIDATION ---
   Future<void> _showEditDialog(String title, String currentValue, Function(String) onSave) async {
@@ -131,9 +151,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFFF7F9F9), 
-      child: SafeArea(
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F9F9), 
+      body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 35.0),
           physics: const BouncingScrollPhysics(),
@@ -204,14 +224,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 10),
 
             ElevatedButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Medical ID Updated Successfully!'),
-                    backgroundColor: Color(0xFF009688),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+              onPressed: () async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('profile_name', _name);
+                await prefs.setString('profile_age', _age);
+                await prefs.setString('profile_bloodType', _bloodType);
+                await prefs.setString('profile_allergies', _allergies);
+                await prefs.setString('profile_emergencyContact', _emergencyContact);
+                await prefs.setString('profile_medicalConditions', _medicalConditions);
+                await prefs.setBool('isFirstLogin', false);
+
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Medical ID Updated Successfully!'),
+                      backgroundColor: Color(0xFF009688),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+
+                  // Navigate to Home Screen after completing profile
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (context) => const KampungHealthHome()),
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF00838F), 

@@ -1,7 +1,11 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io';
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image/image.dart' as img;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/chat_message.dart';
 import '../services/api_service.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -13,8 +17,15 @@ import 'package:url_launcher/url_launcher.dart';
 
 class ChatScreen extends StatefulWidget {
   final bool autoOpenImagePicker;
+  final String? sessionId;
+  final List<ChatMessage>? initialMessages;
 
-  const ChatScreen({super.key, this.autoOpenImagePicker = false});
+  const ChatScreen({
+    super.key, 
+    this.autoOpenImagePicker = false,
+    this.sessionId,
+    this.initialMessages,
+  });
 
   @override
   ChatScreenState createState() => ChatScreenState();
@@ -25,6 +36,7 @@ class ChatScreenState extends State<ChatScreen> {
   final List<ChatMessage> _messages = [];
   
   final TextEditingController _textController = TextEditingController();
+  final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
 
   final FlutterTts _flutterTts = FlutterTts();
@@ -34,18 +46,41 @@ class ChatScreenState extends State<ChatScreen> {
   bool _isListening = false;
   bool _speechEnabled = false;
 
+  late String _sessionId;
+
   @override
   void initState() {
     super.initState();
+    _sessionId = widget.sessionId ?? 'session_${DateTime.now().millisecondsSinceEpoch}';
+
+    if (widget.initialMessages != null) {
+      _messages.addAll(widget.initialMessages!);
+    }
+
     _speechToText = stt.SpeechToText();
     _initSpeech();
     _initTts();
 
-    if (widget.autoOpenImagePicker) {
+    if (widget.autoOpenImagePicker && _messages.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _getImage();
       });
     }
+  }
+
+  Future<void> _autoSaveSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> keys = prefs.getStringList('chat_session_keys')?.toList() ?? [];
+    
+    // Add to index if brand new
+    if (!keys.contains(_sessionId)) {
+      keys.add(_sessionId);
+      await prefs.setStringList('chat_session_keys', keys);
+    }
+
+    // Save current messages JSON format
+    List<Map<String, dynamic>> serializedMessages = _messages.map((m) => m.toJson()).toList();
+    await prefs.setString(_sessionId, jsonEncode(serializedMessages));
   }
 
   void _initSpeech() async {
@@ -132,6 +167,30 @@ class ChatScreenState extends State<ChatScreen> {
       await _stop();
     }
     
+    // Heuristically determine language (Malay vs English)
+    final malayKeywords = [
+      'saya', 'anda', 'ini', 'itu', 'yang', 'dan', 'untuk', 
+      'dengan', 'dalam', 'tidak', 'ada', 'boleh', 'akan', 
+      'atau', 'dari', 'ke', 'pada', 'pesakit', 'doktor'
+    ];
+    
+    int malayCount = 0;
+    final lowerText = text.toLowerCase();
+    for (var word in malayKeywords) {
+      if (lowerText.contains(RegExp(r'\b' + word + r'\b'))) {
+        malayCount++;
+      }
+    }
+    
+    // If we detect Malay words, switch to Bahasa Malaysia accent. Otherwise, default to English.
+    if (malayCount >= 2) {
+      await _flutterTts.setLanguage("ms-MY");
+      // Fallback to Indonesian if Malay is not installed on the browser
+      // await _flutterTts.setLanguage("id-ID"); 
+    } else {
+      await _flutterTts.setLanguage("en-US");
+    }
+
     await _flutterTts.setVolume(1.0);
     await _flutterTts.setSpeechRate(1.0);
     await _flutterTts.setPitch(1.0);
@@ -163,6 +222,18 @@ class ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
+  Future<Map<String, String>> _getUserProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    return {
+      'name': prefs.getString('profile_name') ?? 'Unknown',
+      'age': prefs.getString('profile_age') ?? 'Unknown',
+      'blood_type': prefs.getString('profile_bloodType') ?? 'Unknown',
+      'allergies': prefs.getString('profile_allergies') ?? 'None',
+      'medical_conditions': prefs.getString('profile_medicalConditions') ?? 'None',
+      'emergency_contact': prefs.getString('profile_emergencyContact') ?? 'Unknown',
+    };
+  }
+
   void _handleSubmitted(String text) async {
     _textController.clear();
 
@@ -172,6 +243,8 @@ class ChatScreenState extends State<ChatScreen> {
       _messages.add(ChatMessage(text: text, isUser: true));
       _isLoading = true;
     });
+    // Immediately save user query
+    _autoSaveSession();
 
     try {
       // Compile previous conversation history (excluding the current newly added message)
@@ -182,8 +255,10 @@ class ChatScreenState extends State<ChatScreen> {
                 'content': m.text,
               })
           .toList();
+          
+      final userProfile = await _getUserProfile();
 
-      final response = await ApiService.sendMessage(text, history: history);
+      final response = await ApiService.sendMessage(text, history: history, userProfile: userProfile);
       String rawText = response.response;
       bool triggerSearch = rawText.contains("[URGENT_CLINIC_SEARCH]");
       String cleanText = rawText.replaceAll("[URGENT_CLINIC_SEARCH]", "").trim();
@@ -194,10 +269,11 @@ class ChatScreenState extends State<ChatScreen> {
           _messages.add(aiMessage);
           _isLoading = false;
         });
-      }
-
-      if (triggerSearch) {
-        _findNearbyClinics(aiMessage);
+        _autoSaveSession();
+      
+        if (triggerSearch) {
+          _findNearbyClinics(aiMessage);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -210,6 +286,88 @@ class ChatScreenState extends State<ChatScreen> {
           );
           _isLoading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _pickImageFromGallery() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+
+    if (image != null) {
+      if (mounted) {
+        setState(() {
+          _messages.add(
+            ChatMessage(
+              text: 'analyzing image',
+              isUser: true,
+              imagePath: image.name,
+            ),
+          );
+          _isLoading = true;
+        });
+      }
+
+      try {
+        final Uint8List rawBytes = await image.readAsBytes();
+        
+        // Compress the image down to 300px to avoid MedGemma Token Limits 
+        // (Just like we did for the camera)
+        final img.Image? decodedImage = img.decodeImage(rawBytes);
+        Uint8List compressedBytes = rawBytes;
+
+        if (decodedImage != null) {
+           final img.Image resizedImage = img.copyResize(
+             decodedImage,
+             width: decodedImage.width > decodedImage.height ? 300 : null,
+             height: decodedImage.height >= decodedImage.width ? 300 : null,
+           );
+           compressedBytes = img.encodeJpg(resizedImage, quality: 60);
+        }
+
+        // We update the message safely in state to hold the real bytes for rendering 
+        if (mounted) {
+           setState(() {
+             _messages.last = ChatMessage(
+                text: 'analyzing image',
+                isUser: true,
+                imagePath: image.name,
+                imageBytes: compressedBytes, 
+             );
+           });
+        }
+
+        final userProfile = await _getUserProfile();
+        final response = await ApiService.sendImageBytes(compressedBytes, image.name, "Please analyze this skin condition.", userProfile: userProfile);
+        String rawText = response.response;
+        bool triggerSearch = rawText.contains("[URGENT_CLINIC_SEARCH]");
+        String cleanText = rawText.replaceAll("[URGENT_CLINIC_SEARCH]", "").trim();
+
+        ChatMessage aiMessage = ChatMessage(text: cleanText, isUser: false);
+        if (mounted) {
+          setState(() {
+             _messages.add(aiMessage);
+             _isLoading = false;
+          });
+          _autoSaveSession();
+          
+          if (triggerSearch) {
+             _findNearbyClinics(aiMessage);
+          }
+        }
+
+      } catch (e) {
+        print("Error uploading or compressing gallery image: $e");
+        if (mounted) {
+          setState(() {
+            _messages.add(
+              ChatMessage(
+                text: 'Error analyzing uploaded image: $e',
+                isUser: false,
+              ),
+            );
+            _isLoading = false;
+          });
+        }
       }
     }
   }
@@ -229,19 +387,20 @@ class ChatScreenState extends State<ChatScreen> {
         setState(() {
           _messages.add(
             ChatMessage(
-              text: 'Assessing skin condition...',
+              text: 'analyzing image',
               isUser: true,
-              // We simulate the image path visually for the chat bubble since it's just raw bytes now
-              imagePath: imageName, 
+              imagePath: imageName,
               imageBytes: imageBytes, 
             ),
           );
           _isLoading = true;
         });
+        _autoSaveSession();
       }
 
       try {
-        final response = await ApiService.sendImageBytes(imageBytes, imageName, "Please analyze this skin condition.");
+        final userProfile = await _getUserProfile();
+        final response = await ApiService.sendImageBytes(imageBytes, imageName, "Please analyze this skin condition.", userProfile: userProfile);
         String rawText = response.response;
         bool triggerSearch = rawText.contains("[URGENT_CLINIC_SEARCH]");
         String cleanText = rawText.replaceAll("[URGENT_CLINIC_SEARCH]", "").trim();
@@ -252,6 +411,7 @@ class ChatScreenState extends State<ChatScreen> {
             _messages.add(aiMessage);
             _isLoading = false;
           });
+          _autoSaveSession();
         }
 
         if (triggerSearch) {
@@ -609,8 +769,14 @@ class ChatScreenState extends State<ChatScreen> {
         child: Row(
           children: <Widget>[
             IconButton(
+              icon: const Icon(Icons.attach_file),
+              onPressed: _pickImageFromGallery,
+              tooltip: 'Upload from Gallery',
+            ),
+            IconButton(
               icon: const Icon(Icons.camera_alt),
               onPressed: _getImage,
+              tooltip: 'Take a Picture',
             ),
             IconButton(
               icon: Icon(_isListening ? Icons.mic : Icons.mic_none),

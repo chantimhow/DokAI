@@ -16,10 +16,10 @@ MODEL_NAME = "qwen2.5"
 SYSTEM_PROMPT = """You are 'DokAI', a compassionate and professional medical assistant specifically designed to help rural 'kampung' communities. Your goal is to provide early health guidance and bridge the gap between home care and professional medical services.
 
 ### OPERATIONAL RULES:
-1. MEDICAL DISCLAIMER: You MUST start every response with:  I am an AI assistant, not a doctor. This info is not an official diagnosis
+1. MEDICAL DISCLAIMER: You MUST start every response with a disclaimer (translated to the language you are responding in) stating: "I am an AI assistant, not a doctor. This info is not an official diagnosis."
 2. TONE: Respond with high empathy, patience, and professional warmth. Use simple, non-technical language that is easy for a non-expert to understand.
-3. LANGUAGE: You are bilingual. Respond in the same language the user uses , English or Malay
-4. NO DEFINITIVE DIAGNOSIS: Never say "You have [Disease]." Instead, use These symptoms might be related to
+3. LANGUAGE: You MUST respond in the EXACT SAME LANGUAGE the user used in their prompt. If the user speaks in Malay, your entire response (including the disclaimer) MUST be in Malay. If the user speaks in English, respond in English.
+4. NO DEFINITIVE DIAGNOSIS: Never say "You have [Disease]." Instead, use "These symptoms might be related to..."
 5. IMAGE HANDLING: Since you are a text model, if the user mentions an image or if you receive an 'auto-caption', acknowledge it  and ask clarifying questions about texture, itchiness, or duration.
 
 ### RESPONSE STRUCTURE:
@@ -35,7 +35,23 @@ Always encourage preventative care and visiting a local professional when in dou
 ### CRITICAL INSTRUCTION FOR EMERGENCIES:
 If you determine the user's symptoms sound like a medical emergency (Urgent), you MUST append the exact text `[URGENT_CLINIC_SEARCH]` at the very end of your response. This hidden tag will trigger the app's GPS locator to find nearby hospitals automatically."""
 
-async def generate_chat_response(prompt: str, history: list = None) -> str:
+def _build_system_prompt(user_profile: dict = None) -> str:
+    if not user_profile:
+        return SYSTEM_PROMPT
+    
+    # We defensively format the user context to ensure it doesn't break the base instructions
+    context = "\n\n### CURRENT USER MEDICAL PROFILE:\n"
+    context += f"- Name: {user_profile.get('name', 'Unknown')}\n"
+    context += f"- Age: {user_profile.get('age', 'Unknown')}\n"
+    context += f"- Blood Type: {user_profile.get('blood_type', 'Unknown')}\n"
+    context += f"- Allergies: {user_profile.get('allergies', 'None')}\n"
+    context += f"- Existing Medical Conditions: {user_profile.get('medical_conditions', 'None')}\n\n"
+    context += "CRITICAL WARNING: The user's 'Existing Medical Conditions' are passive background information. DO NOT treat them as acute, ongoing emergencies. Only trigger [URGENT_CLINIC_SEARCH] if the user's *current chat message* describes a new emergency.\n"
+    context += "Additionally, forcefully address the user by their name (" + user_profile.get('name', 'Unknown').strip() + ") to build rapport."
+    
+    return SYSTEM_PROMPT + context
+
+async def generate_chat_response(prompt: str, history: list = None, user_profile: dict = None) -> str:
     """
     Generates a response for a text-based symptom description using Flextoken API.
     """
@@ -46,7 +62,8 @@ async def generate_chat_response(prompt: str, history: list = None) -> str:
         "Authorization": f"Bearer {API_KEY}"
     }
     
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    dynamic_system_prompt = _build_system_prompt(user_profile)
+    messages = [{"role": "system", "content": dynamic_system_prompt}]
     
     for msg in history:
         messages.append({
@@ -91,7 +108,7 @@ LOCATION = os.getenv("MEDGEMMA_LOCATION", "us-central1")
 # you set up in your .env file!
 aiplatform.init(project=PROJECT_ID, location=LOCATION)
 
-async def analyze_image(image_bytes: bytes, mime_type: str, user_description: str = "") -> str:
+async def analyze_image(image_bytes: bytes, mime_type: str, user_description: str = "", user_profile: dict = None) -> str:
     """
     Sends medical image and text to the MedGemma endpoint using the Vertex AI SDK.
     """
@@ -107,9 +124,14 @@ async def analyze_image(image_bytes: bytes, mime_type: str, user_description: st
         # 2. Prepare the Image
         base64_image = base64.b64encode(image_bytes).decode("utf-8")
         
-        # Append the emergency text logic 
-        # Add a strict system persona to prevent MedGemma from refusing the request due to safety filters.
+        # Construct the Instance (MedGemma 1.5 format)
+        # The image model doesn't accept a strict system prompt easily, so we merge the profile into the instruction
+        dynamic_instruction = SYSTEM_PROMPT
+        if user_profile:
+            dynamic_instruction = _build_system_prompt(user_profile)
+            
         full_prompt = (
+            f"System Instructions: {dynamic_instruction}\n\n"
             "You are a clinical imaging assistant. You MUST NOT refuse to answer.\n"
             "Do NOT provide a definitive medical diagnosis.\n"
             "Instead, formally describe the visual characteristics of the skin lesion or condition in this image.\n"
@@ -118,7 +140,6 @@ async def analyze_image(image_bytes: bytes, mime_type: str, user_description: st
             "If you determine the symptoms sound like a medical emergency, you MUST append the exact text `[URGENT_CLINIC_SEARCH]` at the very end of your response."
         )
         
-        # 3. Construct the Instance
         # MedGemma expects explicit conversational turns to know when the user prompt ends.
         conversational_prompt = (
             f"<start_of_turn>user\n"
@@ -127,10 +148,6 @@ async def analyze_image(image_bytes: bytes, mime_type: str, user_description: st
             f"<end_of_turn>\n"
             f"<start_of_turn>model\n"
         )
-        
-        instances = [{
-            "prompt": conversational_prompt
-        }]
         
         # 4. Request Prediction from the SDK
         # CRUCIAL: Vertex Model Garden vLLM containers IGNORE the python SDK's `parameters={}` argument!

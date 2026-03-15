@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart'; // Make sure this import matches your file name
+import 'package:shared_preferences/shared_preferences.dart';
+import 'home_screen.dart'; 
+import 'profile_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,14 +26,22 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = false);
 
     // HARDCODED LOGIC:
-    // Username: admin
-    // Password: password123
     if (_usernameController.text == 'admin' &&
         _passwordController.text == 'password123') {
+      
+      final prefs = await SharedPreferences.getInstance();
+      final bool isFirstLogin = prefs.getBool('isFirstLogin') ?? true;
+
       if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const KampungHealthHome()),
-        );
+        if (isFirstLogin) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const ProfileScreen()),
+          );
+        } else {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const KampungHealthHome()),
+          );
+        }
       }
     } else {
       if (mounted) {
@@ -141,17 +151,43 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 20),
               TextButton(
-                onPressed: () {
+                onPressed: () async {
                   // Direct bypass for testing
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                      builder: (context) => const KampungHealthHome(),
-                    ),
-                  );
+                  final prefs = await SharedPreferences.getInstance();
+                  final bool isFirstLogin = prefs.getBool('isFirstLogin') ?? true;
+
+                  if (mounted) {
+                    if (isFirstLogin) {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                      );
+                    } else {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(
+                            builder: (context) => const KampungHealthHome(),
+                          ),
+                        );
+                    }
+                  }
                 },
                 child: const Text(
                   'Bypass Login (Developer Mode)',
                   style: TextStyle(color: Colors.teal),
+                ),
+              ),
+              TextButton(
+                onPressed: () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.clear();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('All local data wiped for demo!')),
+                    );
+                  }
+                },
+                child: const Text(
+                  'Wipe App Data for Demo',
+                  style: TextStyle(color: Colors.red),
                 ),
               ),
             ],

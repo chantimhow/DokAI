@@ -25,6 +25,7 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     message: str
     history: Optional[List[Dict[str, Any]]] = []
+    user_profile: Optional[Dict[str, Any]] = None
     
 class ChatResponse(BaseModel):
     response: str
@@ -37,7 +38,7 @@ async def chat_endpoint(request: ChatRequest):
     """
     try:
         # Call the AI service
-        ai_response = await ai_service.generate_chat_response(request.message, request.history)
+        ai_response = await ai_service.generate_chat_response(request.message, request.history, request.user_profile)
         return ChatResponse(response=ai_response)
     except Exception as e:
         print(f"Error in /api/chat: {e}")
@@ -46,7 +47,8 @@ async def chat_endpoint(request: ChatRequest):
 @app.post("/api/scan", response_model=ChatResponse)
 async def scan_endpoint(
     image: UploadFile = File(...),
-    description: Optional[str] = Form("")
+    description: Optional[str] = Form(""),
+    user_profile: Optional[str] = Form(None)
 ):
     """
     Endpoint for image-based condition scanning (using Gemini Vision).
@@ -55,8 +57,14 @@ async def scan_endpoint(
         # Read image content
         contents = await image.read()
         
+        # Parse the JSON string from the Form into a dict if it exists
+        profile_dict = None
+        if user_profile:
+            import json
+            profile_dict = json.loads(user_profile)
+
         # Call the AI service
-        ai_response = await ai_service.analyze_image(contents, image.content_type, description)
+        ai_response = await ai_service.analyze_image(contents, image.content_type, description, profile_dict)
         
         return ChatResponse(response=ai_response)
     
