@@ -4,6 +4,7 @@ credentials.json
 backend/credentials.json
 
 # Cache Files
+__pycache__
 __pycache__/
 *.pyc
 *.pyo
